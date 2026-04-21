@@ -1011,7 +1011,26 @@ fn main() {
                 common_profile_dir.display()
             );
         }
-        println!("cargo:rustc-link-lib=static=common");
+        // PrismML-Eng/llama.cpp renamed the common static library from
+        // `libcommon.a` to `libllama-common.a` (with a dependent
+        // `libllama-common-base.a`) to avoid symbol collisions with
+        // downstream consumers. Detect which one this build actually
+        // produced and emit the correct link flags.
+        let has_llama_common = common_lib_dir.join("libllama-common.a").exists()
+            || common_lib_dir.join(&profile).join("llama-common.lib").exists();
+        if has_llama_common {
+            println!("cargo:rustc-link-lib=static=llama-common");
+            let has_base = common_lib_dir.join("libllama-common-base.a").exists()
+                || common_lib_dir
+                    .join(&profile)
+                    .join("llama-common-base.lib")
+                    .exists();
+            if has_base {
+                println!("cargo:rustc-link-lib=static=llama-common-base");
+            }
+        } else {
+            println!("cargo:rustc-link-lib=static=common");
+        }
     }
 
     if cfg!(feature = "system-ggml") {
